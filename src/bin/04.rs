@@ -1,8 +1,11 @@
+use std::usize::MAX;
+
 use ndarray::Array2;
 use rayon::{iter::{ParallelIterator}, str::ParallelString};
 
 advent_of_code::solution!(4);
 
+#[derive(Debug)]
 struct Coord {
   x: i32,
   y: i32,
@@ -49,6 +52,7 @@ impl Coord {
   }
 }
 
+#[derive(Debug)]
 enum Tile {
   Empty(Coord),
   Paper(Coord),
@@ -77,6 +81,7 @@ impl Tile {
     }
 }
 
+#[derive(Debug)]
 struct Floor {
   grid: Array2<Tile>
 }
@@ -127,26 +132,49 @@ impl Floor {
       .count()
     }
 
-    fn eliminate(&self) -> usize {
-      self.grid
+    fn eliminate(&mut self, remove: bool) -> usize {
+      let eliminated_coords: Vec<Coord> = self.grid
         .iter()
         .filter(|&tile| !tile.is_empty())
-        .map(|tile| {
-          match self.count_not_empty_neighbours(tile) < 4 {
-              true => 1,
-              false => 0
+        .filter(|&tile| self.count_not_empty_neighbours(tile) < 4)
+        .map(|tile| tile.get_coord())
+        .collect();
+
+      if remove {
+        eliminated_coords.iter().for_each(|coord| {
+          if let Some((r, c)) = coord.to_usize() {
+            if let Some(tile) = self.grid.get_mut((r, c)) {
+              *tile = Tile::new(' ', coord.clone());
+            }
           }
         })
-        .sum()
+      }
+
+      eliminated_coords
+      .iter()
+      .count()
     }
 }
 
 pub fn part_one(input: &str) -> Option<usize> {
-  Floor::new(input).eliminate().into()
+  Floor::new(input).eliminate(false).into()
 }
 
 pub fn part_two(input: &str) -> Option<usize> {
-  None
+  let mut floor = Floor::new(input);
+
+  let mut eliminations: Vec<usize> = vec![];
+
+  while *eliminations.last().unwrap_or(&MAX) != 0 {
+    eliminations.push(
+      floor.eliminate(true)
+    );
+
+    // dbg!(&floor);
+    // dbg!(&eliminations);
+  };
+
+  eliminations.iter().sum::<usize>().into()
 }
 
 #[cfg(test)]
@@ -162,6 +190,6 @@ mod tests {
   #[test]
   fn test_part_two() {
     let result = part_two(&advent_of_code::template::read_file("examples", DAY));
-    assert_eq!(result, None);
+    assert_eq!(result, Some(43));
   }
 }
